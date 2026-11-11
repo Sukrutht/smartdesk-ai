@@ -53,7 +53,10 @@ async def generate_text(prompt: str) -> str:
     url = f"{BASE_URL}/models/{settings.gemini_model}:generateContent"
     payload = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {"maxOutputTokens": 1024},
+        "generationConfig": {
+            "maxOutputTokens": 1024,
+            "thinkingConfig": {"thinkingLevel": "LOW"},
+        },
     }
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(90.0, connect=10.0)) as client:
