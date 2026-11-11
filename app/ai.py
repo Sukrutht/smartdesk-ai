@@ -1,4 +1,5 @@
 """Small, explicit Gemini REST client. The API key is read only from environment."""
+import asyncio
 import httpx
 from app.config import settings
 
@@ -56,11 +57,25 @@ async def generate_text(prompt: str) -> str:
     }
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(90.0, connect=10.0)) as client:
-            response = await client.post(
-                url,
-                headers={"x-goog-api-key": key},
-                json=payload,
-            )
+            response = None
+            retry_delays = (0, 2, 4)
+            for attempt, delay in enumerate(retry_delays):
+                if delay:
+                    await asyncio.sleep(delay)
+                response = await client.post(
+                    url,
+                    headers={"x-goog-api-key": key},
+                    json=payload,
+                )
+                if response.status_code == 503 and attempt < len(retry_delays) - 1:
+                    continue
+                break
+
+            if response is not None and response.status_code == 503:
+                raise AIServiceError(
+                    "Gemini is temporarily experiencing high demand. "
+                    "Automatic retries were unsuccessful; please try again shortly."
+                )
             response.raise_for_status()
             data = response.json()
             candidates = data.get("candidates") or []
