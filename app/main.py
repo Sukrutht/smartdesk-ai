@@ -63,7 +63,7 @@ async def diagnose_generation():
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.gemini_model}:generateContent"
     payload = {
         "contents": [{"role": "user", "parts": [{"text": "Reply with only the word OK."}]}],
-        "generationConfig": {"maxOutputTokens": 32},
+        "generationConfig": {"maxOutputTokens": 256},
     }
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
