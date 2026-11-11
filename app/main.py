@@ -76,9 +76,23 @@ async def diagnose_generation():
                 detail = "Gemini returned a non-JSON error response."
             return {"success": False, "http_status": response.status_code, "elapsed_seconds": elapsed, "reason": detail}
         data = response.json()
-        parts = (data.get("candidates") or [{}])[0].get("content", {}).get("parts", [])
+        candidates = data.get("candidates") or []
+        candidate = candidates[0] if candidates else {}
+        content = candidate.get("content") or {}
+        parts = content.get("parts") or []
         answer = " ".join(part.get("text", "") for part in parts if isinstance(part.get("text"), str)).strip()
-        return {"success": bool(answer), "http_status": response.status_code, "elapsed_seconds": elapsed, "answer": answer[:100] or "No text returned"}
+        return {
+            "success": bool(answer),
+            "http_status": response.status_code,
+            "elapsed_seconds": elapsed,
+            "answer": answer[:100] or None,
+            "candidate_count": len(candidates),
+            "finish_reason": candidate.get("finishReason"),
+            "prompt_feedback": data.get("promptFeedback"),
+            "content_role": content.get("role"),
+            "part_fields": [sorted(part.keys()) for part in parts if isinstance(part, dict)],
+            "response_fields": sorted(data.keys()),
+        }
     except httpx.TimeoutException:
         return {"success": False, "elapsed_seconds": round(time.perf_counter() - started, 2), "reason": "Direct GenerateContent request timed out after 30 seconds."}
     except httpx.RequestError as exc:
