@@ -30,7 +30,7 @@ async def embed_text(text: str, task_type: str) -> list[float]:
     }
     try:
         async with httpx.AsyncClient(timeout=45) as client:
-            response = await client.post(url, params={"key": key}, json=payload)
+            response = await client.post(url, headers={"x-goog-api-key": key}, json=payload)
             response.raise_for_status()
             return response.json()["embedding"]["values"]
     except httpx.HTTPStatusError as exc:
@@ -49,13 +49,22 @@ async def generate_text(prompt: str) -> str:
     key = _require_key()
     url = f"{BASE_URL}/models/{settings.gemini_model}:generateContent"
     payload = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
-               "generationConfig": {"temperature": 0.2, "maxOutputTokens": 900}}
+               "generationConfig": {"maxOutputTokens": 900}}
     try:
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.post(url, params={"key": key}, json=payload)
             response.raise_for_status()
             data = response.json()
-            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            candidates = data.get("candidates") or []
+            if not candidates:
+                feedback = data.get("promptFeedback", {})
+                reason = feedback.get("blockReason", "No candidate returned")
+                raise AIServiceError(f"Gemini returned no text candidate: {reason}")
+            parts = candidates[0].get("content", {}).get("parts", [])
+            text_parts = [part["text"] for part in parts if isinstance(part.get("text"), str)]
+            if not text_parts:
+                raise AIServiceError("Gemini returned an empty text response.")
+            return "\\n".join(text_parts).strip()
     except httpx.HTTPStatusError as exc:
         try:
             detail = exc.response.json().get("error", {}).get("message", "Request rejected")
@@ -64,8 +73,10 @@ async def generate_text(prompt: str) -> str:
         raise AIServiceError(
             f"Gemini text generation failed (HTTP {exc.response.status_code}): {detail}"
         ) from None
-    except (httpx.HTTPError, KeyError, IndexError, ValueError):
-        raise AIServiceError("Gemini text generation request failed. Check the service logs.") from None
+    except (httpx.HTTPError, ValueError) as exc:
+        raise AIServiceError(
+            f"Gemini request failed ({type(exc).__name__}). Check model access and service logs."
+        ) from None
 
 
 async def classify_ticket(title: str, description: str) -> dict:
