@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SmartDesk AI | Support Workspace</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#121d30;--line:#263750;--muted:#9aabc2;--text:#edf4ff;--blue:#69a7ff;--green:#4adea2}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% 0%,#172b4b 0,transparent 35%),var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+header{padding:26px max(20px,calc((100% - 1100px)/2));border-bottom:1px solid var(--line);background:#0b1220cc}
+.brand{font-size:22px;font-weight:750;letter-spacing:.2px}.brand span{color:var(--blue)}header p{margin:5px 0 0;color:var(--muted)}
+main{max-width:1100px;margin:26px auto;padding:0 18px 50px}.top{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}.pill{border:1px solid var(--line);border-radius:99px;padding:7px 12px;color:var(--muted);font-size:13px}.pill b{color:var(--green)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.card{background:linear-gradient(160deg,#15243a,#101a2b);border:1px solid var(--line);border-radius:16px;padding:20px;min-width:0}.wide{grid-column:1/-1}h2{font-size:17px;margin:0 0 14px}label{display:block;color:#c4d2e5;font-size:13px;margin:12px 0 6px}input,textarea,select{width:100%;border:1px solid #344965;border-radius:9px;background:#0b1525;color:var(--text);padding:11px;font:inherit}textarea{min-height:90px;resize:vertical}button{border:0;border-radius:9px;background:var(--blue);color:#071426;font-weight:700;padding:10px 15px;margin-top:12px;cursor:pointer}button.secondary{background:#263a56;color:var(--text)}button:disabled{opacity:.55;cursor:wait}.muted{color:var(--muted);font-size:13px}.result{white-space:pre-wrap;background:#0a1423;border:1px solid var(--line);border-radius:10px;padding:13px;margin-top:13px;overflow-wrap:anywhere}.ticket{border-top:1px solid var(--line);padding:14px 0}.ticket:first-child{border-top:0}.ticket-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.tag{font-size:12px;border:1px solid #3b5678;border-radius:99px;padding:3px 9px;color:#c8ddff}.ticket p{margin:7px 0;color:#c3d0e2}.ticket small{color:var(--muted)}.statusrow{display:flex;gap:8px;align-items:center;max-width:340px}.statusrow select{flex:1}.statusrow button{margin:0}.notice{margin-top:12px;color:var(--muted);font-size:13px}.sources{margin-top:12px;font-size:13px;color:#b7c9df}.error{color:#ff9b9b}.success{color:var(--green)}
+@media(max-width:720px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}header{padding:20px}main{margin:18px auto;padding:0 13px 36px}.card{padding:16px}.brand{font-size:20px}}
+</style>
+</head>
+<body>
+<header><div class="brand">SmartDesk <span>AI</span></div><p>AI-powered IT support and knowledge workspace</p></header>
+<main>
+<div class="top"><div class="pill">API <b id="apiState">Checking…</b></div><div class="pill">AI ticket triage</div><div class="pill">PDF knowledge assistant</div></div>
+<div class="grid">
+<section class="card"><h2>Create a support ticket</h2>
+<label for="title">Issue title</label><input id="title" maxlength="200" placeholder="e.g. Unable to access company portal">
+<label for="description">Describe the issue</label><textarea id="description" maxlength="5000" placeholder="Explain what happened and what you already tried"></textarea>
+<button id="createBtn">Create ticket with AI</button><div id="createResult" class="notice" aria-live="polite"></div></section>
+<section class="card"><h2>Knowledge assistant</h2>
+<label for="pdf">Upload a PDF guide (max 10 MB)</label><input id="pdf" type="file" accept="application/pdf">
+<button id="uploadBtn" class="secondary">Upload and index PDF</button><div id="uploadResult" class="notice" aria-live="polite"></div>
+<label for="question">Ask a question about uploaded documents</label><textarea id="question" placeholder="What should I check if a user cannot log in?"></textarea>
+<button id="askBtn">Ask SmartDesk</button><div id="askResult" class="result" hidden></div></section>
+<section class="card wide"><div class="ticket-head"><h2>Support tickets</h2><button id="refreshBtn" class="secondary">Refresh tickets</button></div>
+<div id="tickets"><p class="muted">Loading tickets…</p></div></section>
+</div>
+<p class="notice">Demo workspace: this starter version has no user authentication. Do not upload confidential or personal data.</p>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+function show(id,msg,kind=""){const el=$(id);el.textContent=msg;el.className="notice "+kind}
+async function api(path,options={}){const r=await fetch(path,options);let data;try{data=await r.json()}catch{data={detail:await r.text()}}if(!r.ok)throw new Error(data.detail||("Request failed: "+r.status));return data}
+async function health(){try{const d=await api("/health");$("apiState").textContent=d.status==="ok"?"Online":"Unavailable"}catch{$("apiState").textContent="Unavailable"}}
+async function loadTickets(){const box=$("tickets");box.textContent="Loading…";try{const rows=await api("/tickets");box.replaceChildren();if(!rows.length){box.textContent="No tickets yet.";return}rows.forEach(t=>{const card=document.createElement("article");card.className="ticket";const head=document.createElement("div");head.className="ticket-head";const name=document.createElement("strong");name.textContent="#"+t.id+" · "+t.title;const tag=document.createElement("span");tag.className="tag";tag.textContent=t.priority+" · "+t.category;head.append(name,tag);const desc=document.createElement("p");desc.textContent=t.description;const response=document.createElement("p");response.textContent="Suggested response: "+t.suggested_response;const meta=document.createElement("small");meta.textContent="Status: "+t.status+" · "+new Date(t.created_at).toLocaleString();const row=document.createElement("div");row.className="statusrow";const select=document.createElement("select");["Open","In Progress","Resolved","Closed"].forEach(s=>{const o=document.createElement("option");o.value=s;o.textContent=s;o.selected=s===t.status;select.append(o)});const save=document.createElement("button");save.textContent="Update";save.onclick=async()=>{save.disabled=true;try{await api("/tickets/"+t.id,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:select.value})});await loadTickets()}catch(e){alert(e.message)}finally{save.disabled=false}};row.append(select,save);card.append(head,desc,response,meta,row);box.append(card)})}catch(e){box.textContent=e.message}}
+$("createBtn").onclick=async()=>{const b=$("createBtn");b.disabled=true;show("createResult","Creating ticket and asking Gemini…");try{const d=await api("/tickets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:$("title").value,description:$("description").value})});show("createResult","Created ticket #"+d.id+" · "+d.category+" · "+d.priority,"success");$("title").value="";$("description").value="";await loadTickets()}catch(e){show("createResult",e.message,"error")}finally{b.disabled=false}};
+$("uploadBtn").onclick=async()=>{const f=$("pdf").files[0];if(!f){show("uploadResult","Choose a PDF first.","error");return}const b=$("uploadBtn");b.disabled=true;show("uploadResult","Uploading and indexing…");try{const fd=new FormData();fd.append("file",f);const d=await api("/documents/upload",{method:"POST",body:fd});show("uploadResult",d.message+" · "+d.chunks_indexed+" chunks indexed","success")}catch(e){show("uploadResult",e.message,"error")}finally{b.disabled=false}};
+$("askBtn").onclick=async()=>{const b=$("askBtn"),out=$("askResult");b.disabled=true;out.hidden=false;out.textContent="Searching documents and generating an answer…";try{const d=await api("/ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:$("question").value,top_k:4})});out.textContent=d.answer+"\n\nGrounded: "+d.grounded+"\n\nSources:\n"+d.sources.map(s=>s.document+" · page "+s.page+" · relevance "+s.relevance).join("\n")}catch(e){out.textContent=e.message}finally{b.disabled=false}};
+$("refreshBtn").onclick=loadTickets;health();loadTickets();
+</script>
+</body></html>
