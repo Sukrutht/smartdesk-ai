@@ -35,6 +35,11 @@ async def embed_text(text: str, task_type: str) -> list[float]:
             response.raise_for_status()
             return response.json()["embedding"]["values"]
     except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 429:
+            raise AIServiceError(
+                "The AI knowledge service has reached its usage limit. "
+                "Please try again after the quota resets. Your existing tickets are unaffected."
+            ) from None
         try:
             detail = exc.response.json().get("error", {}).get("message", "Request rejected")
         except ValueError:
@@ -92,6 +97,12 @@ async def generate_text(prompt: str) -> str:
                 raise AIServiceError("Gemini returned an empty text response.")
             return "\n".join(text_parts).strip()
     except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 429:
+            raise AIServiceError(
+                "AI is temporarily unavailable because the Gemini usage quota or rate limit "
+                "has been reached. Please try again after the quota resets. "
+                "This ticket was not created, and your existing tickets are unaffected."
+            ) from None
         try:
             detail = exc.response.json().get("error", {}).get("message", "Request rejected")
         except ValueError:
