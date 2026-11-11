@@ -52,10 +52,10 @@ async def generate_text(prompt: str) -> str:
     url = f"{BASE_URL}/models/{settings.gemini_model}:generateContent"
     payload = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {"maxOutputTokens": 900},
+        "generationConfig": {"maxOutputTokens": 300},
     }
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(90.0, connect=10.0)) as client:
             response = await client.post(
                 url,
                 headers={"x-goog-api-key": key},
@@ -83,7 +83,7 @@ async def generate_text(prompt: str) -> str:
         ) from None
     except httpx.ReadTimeout:
         raise AIServiceError(
-            "Gemini text generation timed out after 60 seconds. Check Gemini API availability and service logs."
+            "Gemini text generation timed out after 90 seconds. Check Gemini API availability and service logs."
         ) from None
     except httpx.ConnectTimeout:
         raise AIServiceError(
