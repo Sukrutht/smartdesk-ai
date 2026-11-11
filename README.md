@@ -90,7 +90,7 @@ Start the API:
 uvicorn app.main:app --reload
 ```
 
-Open http://127.0.0.1:8000 for the dashboard or http://127.0.0.1:8000/docs for interactive API documentation.
+Open http://127.0.0.1:8000 for the dashboard or http://127.0.0.1:8000/docs for interactive API documentation.\n\n### Run with Docker\n\n\`\`\`bash\ndocker build -t smartdesk-ai .\ndocker run --env-file .env -p 8000:8000 smartdesk-ai\n\`\`\`
 
 ## Main API endpoints
 
