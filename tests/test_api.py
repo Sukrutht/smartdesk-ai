@@ -9,7 +9,8 @@ client = TestClient(app)
 def test_root_endpoint():
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json()["message"] == "SmartDesk AI API is running"
+    assert "text/html" in response.headers["content-type"]
+    assert "SmartDesk" in response.text
 
 
 def test_health_endpoint():
