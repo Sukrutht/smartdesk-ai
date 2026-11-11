@@ -3,6 +3,7 @@ from tempfile import NamedTemporaryFile
 import httpx
 from fastapi import FastAPI, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import Base, engine, get_db
@@ -23,6 +24,15 @@ def root():
 @app.get("/health", response_model=HealthOut, tags=["General"])
 def health():
     return {"status": "ok", "ai_configured": bool(settings.gemini_api_key)}
+
+@app.get("/diagnostics/database", tags=["General"])
+def diagnose_database():
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return {"connected": True, "database": engine.dialect.name}
+    except Exception:
+        return {"connected": False, "database": engine.dialect.name, "reason": "Database connection failed. Check DATABASE_URL in Render."}
 
 
 @app.get("/diagnostics/gemini", tags=["General"])
