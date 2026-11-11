@@ -12,6 +12,6 @@ services:
       - key: CHROMA_PATH
         value: /tmp/chroma_data
       - key: DATABASE_URL
-        value: sqlite:////tmp/smartdesk.db
+        sync: false
       - key: MAX_UPLOAD_MB
         value: "10"
