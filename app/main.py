@@ -2,6 +2,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 import httpx
 from fastapi import FastAPI, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import Base, engine, get_db
@@ -16,7 +17,7 @@ app = FastAPI(title="SmartDesk AI", version="1.0.0", description="AI-assisted IT
 
 @app.get("/", tags=["General"])
 def root():
-    return {"message": "SmartDesk AI API is running", "docs": "/docs", "health": "/health"}
+    return FileResponse("app/static/index.html")
 
 
 @app.get("/health", response_model=HealthOut, tags=["General"])
