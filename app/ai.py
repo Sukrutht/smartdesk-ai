@@ -33,8 +33,16 @@ async def embed_text(text: str, task_type: str) -> list[float]:
             response = await client.post(url, params={"key": key}, json=payload)
             response.raise_for_status()
             return response.json()["embedding"]["values"]
-    except (httpx.HTTPError, KeyError, ValueError) as exc:
-        raise AIServiceError(f"Embedding request failed: {exc}") from exc
+    except httpx.HTTPStatusError as exc:
+        try:
+            detail = exc.response.json().get("error", {}).get("message", "Request rejected")
+        except ValueError:
+            detail = "Request rejected"
+        raise AIServiceError(
+            f"Gemini embedding failed (HTTP {exc.response.status_code}): {detail}"
+        ) from None
+    except (httpx.HTTPError, KeyError, ValueError):
+        raise AIServiceError("Gemini embedding request failed. Check the service logs.") from None
 
 
 async def generate_text(prompt: str) -> str:
@@ -48,8 +56,16 @@ async def generate_text(prompt: str) -> str:
             response.raise_for_status()
             data = response.json()
             return data["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except (httpx.HTTPError, KeyError, IndexError, ValueError) as exc:
-        raise AIServiceError(f"Text generation request failed: {exc}") from exc
+    except httpx.HTTPStatusError as exc:
+        try:
+            detail = exc.response.json().get("error", {}).get("message", "Request rejected")
+        except ValueError:
+            detail = "Request rejected"
+        raise AIServiceError(
+            f"Gemini text generation failed (HTTP {exc.response.status_code}): {detail}"
+        ) from None
+    except (httpx.HTTPError, KeyError, IndexError, ValueError):
+        raise AIServiceError("Gemini text generation request failed. Check the service logs.") from None
 
 
 async def classify_ticket(title: str, description: str) -> dict:
