@@ -1,5 +1,6 @@
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+import httpx
 from fastapi import FastAPI, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 from app.config import settings
@@ -21,6 +22,34 @@ def root():
 @app.get("/health", response_model=HealthOut, tags=["General"])
 def health():
     return {"status": "ok", "ai_configured": bool(settings.gemini_api_key)}
+
+
+@app.get("/diagnostics/gemini", tags=["General"])
+async def diagnose_gemini():
+    if not settings.gemini_api_key:
+        return {"reachable": False, "reason": "Gemini API key is not configured."}
+    try:
+        timeout = httpx.Timeout(15.0, connect=5.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.get(
+                "https://generativelanguage.googleapis.com/v1beta/models",
+                headers={"x-goog-api-key": settings.gemini_api_key},
+            )
+        if response.status_code != 200:
+            return {"reachable": True, "authenticated": False, "http_status": response.status_code}
+        model_names = [item.get("name", "").removeprefix("models/") for item in response.json().get("models", [])]
+        return {
+            "reachable": True,
+            "authenticated": True,
+            "configured_model_available": settings.gemini_model in model_names,
+            "configured_model": settings.gemini_model,
+        }
+    except httpx.TimeoutException:
+        return {"reachable": False, "reason": "Gemini models request timed out."}
+    except httpx.RequestError:
+        return {"reachable": False, "reason": "Could not connect to Gemini API."}
+    except (ValueError, KeyError):
+        return {"reachable": True, "authenticated": None, "reason": "Unexpected response from Gemini API."}
 
 
 @app.post("/documents/upload", tags=["Knowledge Base"])
