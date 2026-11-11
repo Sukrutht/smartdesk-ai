@@ -53,6 +53,38 @@ async def diagnose_gemini():
         return {"reachable": True, "authenticated": None, "reason": "Unexpected response from Gemini API."}
 
 
+@app.get("/diagnostics/generate", tags=["General"])
+async def diagnose_generation():
+    """Run a tiny, direct GenerateContent request without creating a ticket."""
+    import time
+    if not settings.gemini_api_key:
+        return {"success": False, "reason": "Gemini API key is not configured."}
+    started = time.perf_counter()
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.gemini_model}:generateContent"
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": "Reply with only the word OK."}]}],
+        "generationConfig": {"maxOutputTokens": 32},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
+            response = await client.post(url, headers={"x-goog-api-key": settings.gemini_api_key}, json=payload)
+        elapsed = round(time.perf_counter() - started, 2)
+        if response.status_code != 200:
+            try:
+                detail = response.json().get("error", {}).get("message", "Gemini rejected the request.")
+            except ValueError:
+                detail = "Gemini returned a non-JSON error response."
+            return {"success": False, "http_status": response.status_code, "elapsed_seconds": elapsed, "reason": detail}
+        data = response.json()
+        parts = (data.get("candidates") or [{}])[0].get("content", {}).get("parts", [])
+        answer = " ".join(part.get("text", "") for part in parts if isinstance(part.get("text"), str)).strip()
+        return {"success": bool(answer), "http_status": response.status_code, "elapsed_seconds": elapsed, "answer": answer[:100] or "No text returned"}
+    except httpx.TimeoutException:
+        return {"success": False, "elapsed_seconds": round(time.perf_counter() - started, 2), "reason": "Direct GenerateContent request timed out after 30 seconds."}
+    except httpx.RequestError as exc:
+        return {"success": False, "elapsed_seconds": round(time.perf_counter() - started, 2), "reason": f"Network request failed: {type(exc).__name__}"}
+
+
 @app.post("/documents/upload", tags=["Knowledge Base"])
 async def upload_document(file: UploadFile = File(...)):
     if not file.filename or not file.filename.lower().endswith(".pdf"):
